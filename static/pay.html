@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>调起支付</title>
+</head>
+<script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+<script src="https://apps.bdimg.com/libs/jquery/1.11.1/jquery.js"></script>
+<script type="text/javascript">
+	(function() {
+		//进页面的操作
+		console.log('进入页面操作！');
+		//获取签名值 调用微信官方前台接口需要
+		signature();
+		
+	})();
+
+	function interfaceConfig(nonceStr,timestamp,signature) {
+		console.log('配置接口')
+		wx.config({
+			debug : true, // 开启调试模式,调用的所有api的返回值会在客户端alert出来，若要查看传入的参数，可以在pc端打开，参数信息会通过log打出，仅在pc端时才会打印。
+			appId : 'wx24aedcf6475f34a0', // 必填，公众号的唯一标识
+			timestamp : timestamp, // 必填，生成签名的时间戳
+			nonceStr : nonceStr, // 必填，生成签名的随机串
+			signature : signature,// 必填，签名
+			jsApiList : [ 'chooseWXPay' , 'checkJsApi']
+		// 必填，需要使用的JS接口列表
+		});
+		
+		wx.ready(function(){
+			  // config信息验证后会执行ready方法，所有接口调用都必须在config接口获得结果之后，config是一个客户端的异步操作，所以如果需要在页面加载时就调用相关接口，则须把相关接口放在ready函数中调用来确保正确执行。对于用户触发时才调用的接口，则可以直接调用，不需要放在ready函数中。
+			console.log("config信息验证后执行ready方法");
+		});
+        
+        wx.error(function(res){
+        	  // config信息验证失败会执行error函数，如签名过期导致验证失败，具体错误信息可以打开config的debug模式查看，也可以在返回的res参数中查看，对于SPA可以在这里更新签名。
+        	console.log("失败信息：",res);
+        });
+
+ 
+	}
+	
+
+	function timestamp() {
+		var dates = new Date();
+		var times = dates.getTime();
+		console.log(times);
+		return times;
+	}
+
+	function nonceStr(e) {
+		e = e || 32;
+		var t = "ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678", a = t.length, n = "";
+		for (i = 0; i < e; i++)
+			n += t.charAt(Math.floor(Math.random() * a));
+		console.log(n);
+		return n
+	}
+
+	function signature() {
+		var param = {
+			nonceStr : nonceStr(),
+			timestamp : timestamp(),
+			url : 'https://appcs.sjgjj.cn/yuexiang/pay.html'
+		};
+		
+		var requestData = {
+			'params' : JSON.stringify(param)
+		};
+		
+		var obj = new Object();
+		obj.Data = JSON.stringify(param);
+		
+		console.log("参数1：",requestData);
+		console.log("参数2：",obj.Data);
+		$.ajax({
+			type : 'POST',
+			url : '/yuexiang/jsapi/getSign2',// 发送请求
+			data : obj,
+			timeout : 60000,
+			//dataType : 'json', // 返回的数据格式：json/xml/html/script/jsonp/text
+			success : function(result) {
+
+				console.log(result);
+				console.log('signature------------>>', result.signature);
+				//接口配置
+				interfaceConfig(result.nonceStr, result.timestamp,
+						result.signature);
+			}
+		});
+
+	}
+	
+
+	function checkApi(){
+		console.log('检查接口')
+		wx.checkJsApi({
+		  jsApiList: ['chooseWXPay'], // 需要检测的JS接口列表，所有JS接口列表见附录2,
+		  success: function(res) {
+		  // 以键值对的形式返回，可用的api值true，不可用为false
+		  // 如：{"checkResult":{"chooseImage":true},"errMsg":"checkJsApi:ok"}
+		  	console.log(res);
+		  }
+		});	
+	}
+	
+	function sendredpack(){
+		
+		$.ajax({
+			type : 'POST',
+			url : '/yuexiang/jsapi/sendredpack',// 发送请求
+			data : null,
+			dataType : 'json', // 返回的数据格式：json/xml/html/script/jsonp/text
+			success : function(result) {
+				
+				//退款状态
+				console.log(result.status);
+				
+			}
+		})
+	}
+	
+	function refund(){
+		var param = { 
+			out_trade_no:'P36buf8g2q3tta0drR5cfJKMOcLE',
+			out_refund_no:nonceStr(),
+			refund:1,
+			total:1,
+			currency:'CNY'
+		}
+		
+		var obj = new Object();
+		obj.Data = JSON.stringify(param);
+		
+		$.ajax({
+			type : 'POST',
+			url : '/yuexiang/jsapi/refunds',// 发送请求
+			data : obj,
+			dataType : 'json', // 返回的数据格式：json/xml/html/script/jsonp/text
+			success : function(result) {
+				
+				//退款状态
+				alert(result.status);
+				
+			}
+		})
+		
+	}
+	
+	function startpay() {
+		var param = {
+			timestamp : timestamp()
+		};
+		console.log(param);
+
+		var requestData = {
+			'params' : JSON.stringify(param)
+		};
+		$.ajax({
+			type : 'POST',
+			url : '/yuexiang/jsapi/preparePay',// 发送请求
+			data : requestData,
+			dataType : 'json', // 返回的数据格式：json/xml/html/script/jsonp/text
+			success : function(result) {
+
+				//包含 签名值、预支付id、时间戳、随机字符串
+				console.log(result);
+				var prepay_id = result.package;
+				//如果正确返回prepay_id，那么
+				if(prepay_id.indexOf("prepay_id")!=-1){
+					console.log("调起支付！！");
+					console.log("時間戳：",result.timestamp);
+					console.log("nonceStr：",result.nonceStr);
+					console.log("paySign：",result.paySign);
+					console.log("package: ",result.package)
+					wx.chooseWXPay({
+						  timestamp: result.timestamp, // 支付签名时间戳，注意微信jssdk中的所有使用timestamp字段均为小写。但最新版的支付后台生成签名使用的timeStamp字段名需大写其中的S字符
+						  nonceStr: result.nonceStr, // 支付签名随机串，不长于 32 位
+						  package: result.package, // 统一支付接口返回的prepay_id参数值，提交格式如：prepay_id=\*\*\*）
+						  signType: 'RSA', // 微信支付V3的传入RSA,微信支付V2的传入格式与V2统一下单的签名格式保持一致
+						  paySign: result.paySign, // 支付签名
+						  success: function (res) {
+						    // 支付成功后的回调函数
+						    console.log("支付成功");
+						  },
+						  fail: function(res){
+							console.log("错误信息：",res);
+						  }
+						});
+				}else{
+					console.log("没有正确返回prepay_id");
+				}
+				
+				
+			}
+		});
+
+	}
+</script>
+<body>
+	this is pay page!
+
+	<button id="startPay_btn" onclick="startpay()">获取预支付url并支付</button>
+
+	<button id="refund_btn" onclick="refund()">退款</button>
+
+	<button id="sendredpack_btn" onclick="sendredpack()">发红包</button>
+
+
+</body>
+</html>
